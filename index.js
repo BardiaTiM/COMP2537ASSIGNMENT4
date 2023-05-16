@@ -2,6 +2,24 @@ $(document).ready(function () {
     let numCards;
     const cards = [];
     const gameGrid = $('#game_grid');
+    let timerId;
+
+    function startTimer(duration, onTimeout) {
+        let timer = duration;
+        const timerElement = document.getElementById("timer-value");
+      
+        timerId = setInterval(function () {
+          if (timer <= 0) {
+            clearInterval(timerId);
+            onTimeout();
+          }
+          timerElement.textContent = timer; // Update the timer value on the HTML page
+          timer--;
+        }, 1000);
+      }
+
+    
+
   
     function regenerateGame() {
         // Clear the previous game state
@@ -40,16 +58,19 @@ $(document).ready(function () {
   
     $("#easy").on("click", function () {
       numCards = 6;
+      time = 100;
       regenerateGame();
     });
   
     $("#medium").on("click", function () {
       numCards = 12;
+      time = 200;
       regenerateGame();
     });
   
     $("#hard").on("click", function () {
       numCards = 24;
+      time = 300;
       regenerateGame();
     });
   
@@ -70,16 +91,22 @@ $(document).ready(function () {
             matches = 0;
             pairsLeft = numCards / 2; // Update pairsLeft based on the number of cards
             attempts = 0;
-        
+          
             // Reset card flips
             $(".card").removeClass("flip");
-        
+          
             // Re-enable card clicks
             $(".card").on("click");
-        
+          
             // Update all displays
             updateAll();
+          
+            // Reset and stop the timer
+            clearInterval(timerId);
+            const timerElement = document.getElementById("timer-value");
+            timerElement.textContent = "100"; // Update the timer value to the initial value (60 seconds) or your desired value
           }
+          
         
           // Event handler for the "Reset Game" button
           $("#reset").on("click", function () {
@@ -100,36 +127,72 @@ $(document).ready(function () {
           // Event handler for the "Start Game" button
           $("#start").on("click", function () {
             startGame();
+            startTimer(time, onTimeout);
           });
+          function onTimeout() {
+            alert("You lost!"); // Display an alert when the timer runs out
+            resetGame(); // Reset the game after the timeout
+            $("#start").show();
+          }
+
+          function wonGame() {
+            alert("You won!");
+            resetGame();
+            $("#start").show();
+            }
     
           
         //function to update the score
           function updateScore() {
-            document.getElementById("score").innerHTML = "Score: " + matches;
+            document.getElementById("score").innerHTML = "Number of pairs left: " + matches;
+        }
+
+        function updateNumberCards() {
+            document.getElementById("numcards").innerHTML = "Total Number of Pairs " + numCards /2;
         }
     
         //function to update the attempts
         function updateAttempts() {
-            document.getElementById("attempts").innerHTML = "Attempts: " + attempts;
+            document.getElementById("attempts").innerHTML = "Number of Clicks: " + attempts;
         }
     
         //function to update the pairs left
         function updatePairsLeft() {
-            document.getElementById("pairsLeft").innerHTML = "Pairs Left: " + pairsLeft;
+            document.getElementById("pairsLeft").innerHTML = "Number of pairs left: " + pairsLeft;
         }
     
         //function that calls all the update functions
         function updateAll() {
+            updateNumberCards();
             updateScore();
             updateAttempts();
             updatePairsLeft();
         }
+
+        function revealAllCards() {
+            $(".card:not(.flip)").addClass("flip");
+        }
         
-    
+        let powerUpActive = false;
+        let lastMatchTime = null;
         $(".card").on("click", function () {
           if ($(this).hasClass("flip") || isChecking) {
             // Prevent clicking on a flipped card or during card comparison
             return;
+          }
+
+
+          function checkPowerUp() {
+            if (powerUpActive && matches % 2 === 0) {
+              const $unflippedCards = $(".card:not(.flip)");
+          
+              $unflippedCards.addClass("flip");
+          
+              setTimeout(function () {
+                $unflippedCards.removeClass("flip");
+                powerUpActive = false;
+              }, 1000); // 1-second reveal duration
+            }
           }
     
           $(this).toggleClass("flip");
@@ -141,16 +204,30 @@ $(document).ready(function () {
             console.log(firstCard, secondCard);
     
             if (firstCard.src == secondCard.src) {
-              console.log("match");
-              $(`#${firstCard.id}`).parent().off("click");
-              $(`#${secondCard.id}`).parent().off("click");
-              matches++;
-              pairsLeft--;
-              attempts++;
-    
-              // Reset the first and second cards
-              firstCard = undefined;
-              secondCard = undefined;
+                console.log("match");
+                $(`#${firstCard.id}`).parent().off("click");
+                $(`#${secondCard.id}`).parent().off("click");
+                matches++;
+                pairsLeft--;
+                attempts++;
+            
+                const currentTime = new Date().getTime();
+                if (lastMatchTime && (currentTime - lastMatchTime) <= 10000) {
+                    powerUpActive = true;
+                    console.log("power up activated");
+                    checkPowerUp();
+                }
+                lastMatchTime = currentTime;
+            
+                if (pairsLeft === 0) {
+                    setTimeout(function () {
+                        wonGame();
+                    }, 1000); // 2-second delay (2000 milliseconds)
+                }
+            
+                // Reset the first and second cards
+                firstCard = undefined;
+                secondCard = undefined;
             } else {
               console.log("no match");
               isChecking = true;
@@ -169,23 +246,21 @@ $(document).ready(function () {
             }
           }
           updateAll();
-          function startGame() {
-            // Hide the Start Game button
-            $("#start").hide();
-      
-            // Show the game grid
-            gameGrid.show();
-      
-            // Set up the game
-            setup();
-          }
-      
-          // Event handler for the "Start Game" button
-          $("#start").on("click", function () {
-            startGame();
-          });
     
         });
+        function checkPowerUp() {
+            if (powerUpActive && matches % 2 === 0) {
+              setTimeout(function () {
+                hideAllCards();
+                powerUpActive = false;
+              }, 1000); // 1-second reveal duration
+            }
+          }
+
+          function hideAllCards() {
+            $(".card:not(.match)").removeClass("flip");
+        }
+        
       };
   
       function getRandomPokemon() {
@@ -244,6 +319,21 @@ $(document).ready(function () {
   
     // Set default difficulty and start the game
     numCards = 6;
+    time = 100;
     regenerateGame();
+
+    document.getElementById("colorButton").addEventListener("click", function() {
+        var body = document.body;
+        
+        if (body.style.backgroundColor === "black") {
+          body.style.backgroundColor = "white";
+          body.style.color = "black";
+        } else {
+          body.style.backgroundColor = "black";
+          body.style.color = "white";
+        }
+      });
+      
+      
   });
   
